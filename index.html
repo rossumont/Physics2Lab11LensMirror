@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lenses & Curved Mirrors</title>
+<style>
+:root{--bg:#0B1A2B;--fg:#EEE9DD;--mut:#8C9BAD;--grn:#7FD4A8;--amb:#E8B23A;--line:rgba(255,255,255,.15);--card:rgba(255,255,255,.04);--mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:-apple-system,"Segoe UI","Sarabun","Noto Sans Thai",sans-serif;overflow:hidden}
+body{background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:28px 28px}
+#app{display:flex;flex-direction:column;height:100vh;height:100dvh}
+header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px 4px;gap:10px}
+h1{margin:0;font-size:20px;font-weight:800}
+.sub{color:var(--mut);font-size:13px;margin-top:2px}
+.hb{display:flex;gap:8px;flex:0 0 auto}
+.hbtn{background:transparent;border:1px solid var(--line);color:var(--fg);border-radius:8px;padding:6px 12px;font-size:14px;cursor:pointer}
+.hbtn .on{color:var(--grn);font-weight:700}
+.hbtn .off{color:var(--mut)}
+#stage{flex:1;min-height:0;position:relative}
+canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
+.rows{padding:4px 12px 8px;display:flex;flex-direction:column;gap:6px}
+.row{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;align-items:center}
+.row::-webkit-scrollbar{display:none}
+.chip{flex:0 0 auto;background:var(--card);border:1px solid var(--line);color:var(--fg);border-radius:999px;padding:7px 14px;font-size:14px;cursor:pointer;white-space:nowrap;user-select:none;-webkit-user-select:none}
+.chip.on{border-color:var(--grn);color:var(--grn);background:rgba(127,212,168,.1)}
+.chip.amb.on{border-color:var(--amb);color:var(--amb);background:rgba(232,178,58,.1)}
+.chip.mono{font-family:var(--mono)}
+.chip.sm{font-size:12.5px;padding:6px 10px}
+.chip.flash{border-color:var(--amb);color:var(--amb)}
+.sep{width:1px;height:22px;background:var(--line);flex:0 0 auto;margin:0 4px}
+footer{padding:6px 12px 10px;text-align:center;color:var(--mut);font-size:11.5px;border-top:1px solid var(--line)}
+.modal{position:fixed;inset:0;background:rgba(3,8,15,.72);display:none;align-items:center;justify-content:center;z-index:10;padding:16px}
+.modal.show{display:flex}
+.box{background:#102338;border:1px solid var(--line);border-radius:14px;padding:18px;width:min(580px,100%);max-height:90vh;overflow:auto}
+.box h2{margin:0 0 12px;font-size:18px}
+.box h3{font-size:14px;color:var(--amb);margin:18px 0 6px}
+.box label{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:6px 0;font-size:14px}
+.box input{background:#0B1A2B;border:1px solid var(--line);color:var(--fg);border-radius:8px;padding:7px 10px;font-family:var(--mono);font-size:14px;width:140px}
+.box input[type=checkbox]{width:20px;height:20px}
+.box .full{width:100%}
+.btn{background:var(--grn);color:#0B1A2B;border:0;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer;font-size:14px}
+.btn.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.msg{font-size:13px;color:var(--amb);min-height:18px;margin-top:6px}
+table{border-collapse:collapse;width:100%;font-family:var(--mono);font-size:13px}
+td,th{border:1px solid var(--line);padding:4px 6px;text-align:center}
+.guide{font-size:13.5px;line-height:1.6;color:#d8d3c6;padding-left:18px;margin:0}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div>
+      <h1 data-t="title"></h1>
+      <div class="sub" data-t="sub"></div>
+    </div>
+    <div class="hb">
+      <button class="hbtn" id="langBtn"><span id="lEN">EN</span> / <span id="lTH">ไทย</span></button>
+      <button class="hbtn" id="tBtn" data-t="teacher"></button>
+    </div>
+  </header>
+  <div id="stage"><canvas id="cv"></canvas></div>
+  <div class="rows">
+    <div class="row" id="row1"></div>
+    <div class="row" id="row2"></div>
+  </div>
+  <footer id="credit"></footer>
+</div>
+
+<!-- data -->
+<div class="modal" id="dm"><div class="box">
+  <h2 data-t="data"></h2>
+  <div id="dTable"></div>
+  <div class="btns">
+    <button class="btn" id="csvBtn">CSV</button>
+    <button class="btn ghost" id="clrBtn" data-t="clear"></button>
+    <button class="btn ghost" data-close="dm">✕</button>
+  </div>
+</div></div>
+
+<!-- teacher -->
+<div class="modal" id="tm"><div class="box">
+  <div id="tLogin">
+    <h2 data-t="teacher"></h2>
+    <input type="password" id="pw" class="full" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-ph="password">
+    <div class="msg" id="pwMsg"></div>
+    <div class="btns"><button class="btn" id="pwGo">OK</button><button class="btn ghost" data-close="tm">✕</button></div>
+  </div>
+  <div id="tPanel" hidden>
+    <h2 data-t="teacher"></h2>
+    <h3 data-t="hFocal"></h3>
+    <label><span data-t="e0"></span><input type="number" step="0.1" id="f0"></label>
+    <label><span data-t="e1"></span><input type="number" step="0.1" id="f1"></label>
+    <label><span data-t="e2"></span><input type="number" step="0.1" id="f2"></label>
+    <label><span data-t="e3"></span><input type="number" step="0.1" id="f3"></label>
+    <h3 data-t="hPos"></h3>
+    <label><span data-t="lensPos"></span><input type="number" step="1" id="xL"></label>
+    <label><span data-t="mirPos"></span><input type="number" step="1" id="xM"></label>
+    <label><span data-t="raysStu"></span><input type="checkbox" id="rays"></label>
+    <label><span data-t="raysDemo"></span><input type="checkbox" id="demo"></label>
+    <div class="btns">
+      <button class="btn" id="saveBtn" data-t="save"></button>
+      <button class="btn ghost" id="rndBtn" data-t="random"></button>
+      <button class="btn ghost" id="linkBtn" data-t="link"></button>
+    </div>
+    <input type="text" id="linkOut" class="full" readonly style="margin-top:8px" hidden>
+    <div class="msg" id="tMsg"></div>
+    <h3 data-t="hAns"></h3>
+    <div id="ans"></div>
+    <h3 data-t="hGuide"></h3>
+    <ol class="guide" id="guide"></ol>
+    <h3 data-t="hPw"></h3>
+    <label><span>Email</span><input type="email" id="adE" autocapitalize="off"></label>
+    <label><span data-t="adPass"></span><input type="password" id="adP" autocapitalize="off" autocorrect="off"></label>
+    <label><span data-t="newPass"></span><input type="text" id="nP" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+    <div class="btns"><button class="btn ghost" id="pwChg" data-t="change"></button></div>
+    <div class="msg" id="pcMsg"></div>
+    <div class="btns"><button class="btn ghost" data-close="tm">✕</button></div>
+  </div>
+</div></div>
+
+<script>
+const T={
+en:{title:"Lenses & Curved Mirrors",sub:"Object · image · focal length",teacher:"Teacher",
+e0:"Convex lens",e1:"Concave lens",e2:"Concave mirror",e3:"Convex mirror",
+screen:"Screen",pin:"Pin",object:"Object",record:"● Record",data:"Data",clear:"Clear",
+inScreen:"SCREEN",tooFar:"Image too far — beyond the bench",inEye:"EYE VIEW · pin vs image",lens:"LENS",mirror:"MIRROR",
+password:"Password",wrong:"Wrong password",hFocal:"Focal length |f| (cm)",hPos:"Positions on bench (cm)",
+lensPos:"Lens at",mirPos:"Mirror at",raysStu:"Show rays to students",raysDemo:"Show rays (this screen only)",
+save:"Save",random:"Random",link:"Student link",copied:"Link copied — send it to students.",
+noHost:"Upload this file to GitHub Pages first; the link only works from a real web address.",
+saved:"Saved.",hAns:"Answer key",hGuide:"Guide",hPw:"Change password",adPass:"Admin password",newPass:"New password",
+change:"Change",pwOk:"Password changed.",pwBad:"Email or admin password incorrect.",pwEmpty:"Enter a new password.",
+no:"No.",elem:"Element",method:"Method",
+guide:["Lenses: lens is fixed. Drag the object, then slide the Screen until the image is sharpest. u = lens − object, v = screen − lens.",
+"Mirrors: object and screen are on the same side. u = mirror − object, v = mirror − screen.",
+"Concave lens / convex mirror: use the Pin. Move your eye with ◀ 👁 ▶; slide the pin until pin and image move together (no parallax). v is negative.",
+"1/f = 1/u + 1/v. Plot 1/v against 1/u; intercept = 1/f. For mirrors R = 2f.",
+"◀ ▶ moves 0.1 cm, ◀◀ ▶▶ moves 1 cm. Tap Object / Screen / Pin to choose what moves."],
+credit:["Asst.Prof.Dr. Rossumont Jaryabhand · Rajamangala University of Technology Tawan-ok,","Uthenthawai Campus · No Right Reserved"]},
+th:{title:"เลนส์และกระจกโค้ง",sub:"วัตถุ · ภาพ · ความยาวโฟกัส",teacher:"ครู",
+e0:"เลนส์นูน",e1:"เลนส์เว้า",e2:"กระจกเว้า",e3:"กระจกนูน",
+screen:"ฉาก",pin:"เข็ม",object:"วัตถุ",record:"● บันทึก",data:"ข้อมูล",clear:"ล้าง",
+inScreen:"ฉากรับภาพ",tooFar:"ระยะภาพไกลเกิน — เลยขอบราง",inEye:"มุมมองตา · เข็มกับภาพ",lens:"เลนส์",mirror:"กระจก",
+password:"รหัสผ่าน",wrong:"รหัสผ่านไม่ถูกต้อง",hFocal:"ความยาวโฟกัส |f| (cm)",hPos:"ตำแหน่งบนราง (cm)",
+lensPos:"เลนส์อยู่ที่",mirPos:"กระจกอยู่ที่",raysStu:"แสดงรังสีให้นักศึกษา",raysDemo:"แสดงรังสี (เฉพาะจอนี้)",
+save:"บันทึก",random:"สุ่มค่า",link:"ลิงก์นักศึกษา",copied:"คัดลอกลิงก์แล้ว — ส่งให้นักศึกษาได้เลย",
+noHost:"ต้องอัปโหลดไฟล์ขึ้น GitHub Pages ก่อน ลิงก์จึงจะใช้งานได้",
+saved:"บันทึกแล้ว",hAns:"เฉลย",hGuide:"คู่มือครู",hPw:"เปลี่ยนรหัสผ่าน",adPass:"รหัสผู้ดูแล",newPass:"รหัสผ่านใหม่",
+change:"เปลี่ยน",pwOk:"เปลี่ยนรหัสผ่านแล้ว",pwBad:"อีเมลหรือรหัสผู้ดูแลไม่ถูกต้อง",pwEmpty:"กรุณาใส่รหัสผ่านใหม่",
+no:"ที่",elem:"อุปกรณ์",method:"วิธี",
+guide:["เลนส์: เลนส์อยู่กับที่ ลากวัตถุ แล้วเลื่อนฉากจนภาพคมชัดที่สุด u = เลนส์ − วัตถุ, v = ฉาก − เลนส์",
+"กระจก: วัตถุและฉากอยู่ด้านเดียวกัน u = กระจก − วัตถุ, v = กระจก − ฉาก",
+"เลนส์เว้า / กระจกนูน: ใช้เข็ม ขยับตาด้วยปุ่ม ◀ 👁 ▶ แล้วเลื่อนเข็มจนเข็มกับภาพเคลื่อนไปด้วยกัน (ไม่มีพารัลแลกซ์) ค่า v เป็นลบ",
+"1/f = 1/u + 1/v เขียนกราฟ 1/v กับ 1/u จุดตัดแกน = 1/f สำหรับกระจก R = 2f",
+"◀ ▶ เลื่อน 0.1 cm, ◀◀ ▶▶ เลื่อน 1 cm แตะ วัตถุ / ฉาก / เข็ม เพื่อเลือกสิ่งที่จะเลื่อน"],
+credit:["ผศ.ดร.รสสุมนต์ จารยะพันธุ์ · มหาวิทยาลัยเทคโนโลยีราชมงคลตะวันออก","อุเทนถวาย · ไม่สงวนลิขสิทธิ์"]}};
+
+const PASS_DEF="9;5:4*5‘", AD_E="rossumont@gmail.com", AD_P="LhaMoAPL9545=";
+const norm=s=>(s||"").replace(/[‘’‚‛`´′]/g,"'").replace(/[“”„]/g,'"').trim();
+const SIGN=[1,-1,1,-1];
+const DEF={f:[15,20,12.5,15],xL:50,xM:70,rays:0};
+const $=id=>document.getElementById(id);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+let lang="en",el=0,tool="screen",target="o",demo=false,teacherOK=false,locked=false,eye=.5,eyeT=.5;
+let S=JSON.parse(JSON.stringify(DEF));
+const P=[{o:10,s:92,p:30},{o:20,s:92,p:40},{o:15,s:40,p:40},{o:30,s:40,p:80}];
+let REC=[];
+function ls(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}}
+const KEY="rjOptics";
+function xr(s){let r="";for(let i=0;i<s.length;i++)r+=String.fromCharCode(s.charCodeAt(i)^KEY.charCodeAt(i%KEY.length));return r}
+function enc(o){return btoa(xr(JSON.stringify(o))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"")}
+function dec(t){t=t.replace(/-/g,"+").replace(/_/g,"/");while(t.length%4)t+="=";return JSON.parse(xr(atob(t)))}
+function validS(o){return o&&Array.isArray(o.f)&&o.f.length===4&&o.f.every(x=>isFinite(x)&&x>0)&&isFinite(o.xL)&&isFinite(o.xM)}
+(function load(){
+  const q=new URLSearchParams(location.search).get("s");
+  if(q){try{const o=dec(q);if(validS(o)){S=o;locked=true}}catch(e){}}
+  if(!locked){try{const o=JSON.parse(ls("lensLab.cfg")||"null");if(validS(o))S=o}catch(e){}}
+  try{REC=JSON.parse(ls("lensLab.rec")||"[]")||[]}catch(e){REC=[]}
+})();
+const getPass=()=>ls("lensLab.pw")||PASS_DEF;
+const isM=()=>el>=2;
+const xEl=()=>isM()?S.xM:S.xL;
+const fv=()=>SIGN[el]*S.f[el];
+const dk=()=>tool==="pin"?"p":"s";
+function lim(k){const xE=xEl();if(k==="o")return[0,xE-1];if(k==="s")return isM()?[0,xE-1]:[xE+1,100];return[0,100]}
+function setPos(k,x){const[a,b]=lim(k);P[el][k]=Math.round(clamp(x,a,b)*10)/10}
+function fixAll(){const keep=el;for(let i=0;i<4;i++){el=i;["o","s","p"].forEach(k=>setPos(k,P[i][k]))}el=keep}
+fixAll();
+function image(){const xo=P[el].o,xE=xEl(),u=xE-xo,f=fv();if(Math.abs(u-f)<1e-6)return null;const v=u*f/(u-f);return{u,v,m:-v/u,xi:isM()?xE-v:xE+v,real:v>0}}
+
+/* ---------- UI ---------- */
+function t(k){return T[lang][k]}
+function applyLang(){
+  document.documentElement.lang=lang;
+  document.querySelectorAll("[data-t]").forEach(e=>e.textContent=t(e.dataset.t));
+  document.querySelectorAll("[data-ph]").forEach(e=>e.placeholder=t(e.dataset.ph));
+  $("lEN").className=lang==="en"?"on":"off";$("lTH").className=lang==="th"?"on":"off";
+  $("credit").innerHTML=t("credit")[0]+" <span style='white-space:nowrap'>"+t("credit")[1]+"</span>";document.title=t("title");
+  $("guide").innerHTML=t("guide").map(s=>"<li>"+s+"</li>").join("");
+  chips();renderAns();renderData();
+}
+function chip(label,on,fn,cls){const b=document.createElement("button");b.className="chip"+(on?" on":"")+(cls?" "+cls:"");b.textContent=label;b.onclick=fn;return b}
+function sep(){const d=document.createElement("div");d.className="sep";return d}
+function chips(){
+  const r1=$("row1"),r2=$("row2");r1.innerHTML="";r2.innerHTML="";
+  for(let i=0;i<4;i++)r1.appendChild(chip(t("e"+i),el===i,()=>{el=i;tool=(i===1||i===3)?"pin":"screen";eyeT=.5;chips()},"sm"));
+  if(tool==="pin"){r1.appendChild(sep());r1.appendChild(chip("◀ 👁",false,()=>{eyeT=clamp(eyeT-.5,-1,1)},"mono sm"));r1.appendChild(chip("👁 ▶",false,()=>{eyeT=clamp(eyeT+.5,-1,1)},"mono sm"))}
+  r2.appendChild(chip(t("object"),target==="o",()=>{target="o";chips()}));
+  ["screen","pin"].forEach(k=>r2.appendChild(chip(t(k),tool===k,()=>{tool=k;target="d";chips()},target==="d"?"":"amb")));
+  r2.appendChild(sep());
+  r2.appendChild(chip("◀◀",false,()=>nudge(-1),"mono"));
+  r2.appendChild(chip("◀",false,()=>nudge(-.1),"mono"));
+  r2.appendChild(chip("▶",false,()=>nudge(.1),"mono"));
+  r2.appendChild(chip("▶▶",false,()=>nudge(1),"mono"));
+  r2.appendChild(sep());
+  const rb=chip(t("record"),false,()=>{record();rb.classList.add("flash");setTimeout(()=>rb.classList.remove("flash"),300)});r2.appendChild(rb);
+  r2.appendChild(chip("☰ "+t("data")+" ("+REC.length+")",false,()=>{renderData();$("dm").classList.add("show")}));
+}
+function nudge(d){const k=target==="o"?"o":dk();setPos(k,P[el][k]+d)}
+function record(){REC.push({e:el,o:P[el].o,x:xEl(),d:P[el][dk()],m:tool});ls("lensLab.rec",JSON.stringify(REC));chips()}
+function renderData(){
+  let h="<table><tr><th>"+t("no")+"</th><th>"+t("elem")+"</th><th>"+t("object")+"</th><th>"+t("lens")+"/"+t("mirror")+"</th><th>"+t("screen")+"/"+t("pin")+"</th></tr>";
+  REC.forEach((r,i)=>{h+="<tr><td>"+(i+1)+"</td><td style='font-family:inherit'>"+t("e"+r.e)+"</td><td>"+r.o.toFixed(1)+"</td><td>"+r.x.toFixed(1)+"</td><td>"+r.d.toFixed(1)+" "+(r.m==="pin"?"📍":"▭")+"</td></tr>"});
+  $("dTable").innerHTML=h+"</table>";
+}
+$("csvBtn").onclick=()=>{
+  let c="No,Element,Object(cm),Lens/Mirror(cm),Screen/Pin(cm),Method\n";
+  REC.forEach((r,i)=>c+=[i+1,T.en["e"+r.e],r.o.toFixed(1),r.x.toFixed(1),r.d.toFixed(1),r.m].join(",")+"\n");
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+c],{type:"text/csv"}));a.download="lens-mirror-data.csv";a.click();
+};
+$("clrBtn").onclick=()=>{if(confirm(t("clear")+"?")){REC=[];ls("lensLab.rec","[]");renderData();chips()}};
+document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>$(b.dataset.close).classList.remove("show"));
+$("langBtn").onclick=()=>{lang=lang==="en"?"th":"en";applyLang()};
+
+/* ---------- teacher ---------- */
+$("tBtn").onclick=()=>{$("tm").classList.add("show");if(teacherOK)openPanel();else{$("pw").value="";$("pwMsg").textContent="";$("tLogin").hidden=false;$("tPanel").hidden=true;setTimeout(()=>$("pw").focus(),50)}};
+function tryPw(){if(norm($("pw").value)===norm(getPass())){teacherOK=true;openPanel()}else $("pwMsg").textContent=t("wrong")}
+$("pwGo").onclick=tryPw;$("pw").onkeydown=e=>{if(e.key==="Enter")tryPw()};
+function openPanel(){$("tLogin").hidden=true;$("tPanel").hidden=false;fillPanel();$("tMsg").textContent="";$("linkOut").hidden=true}
+function fillPanel(){for(let i=0;i<4;i++)$("f"+i).value=S.f[i];$("xL").value=S.xL;$("xM").value=S.xM;$("rays").checked=!!S.rays;$("demo").checked=demo;renderAns()}
+function readPanel(){
+  const f=[0,1,2,3].map(i=>{const v=Math.abs(parseFloat($("f"+i).value));return isFinite(v)&&v>=2?Math.round(v*10)/10:S.f[i]});
+  const xL=clamp(Math.round(parseFloat($("xL").value)||50),30,70),xM=clamp(Math.round(parseFloat($("xM").value)||70),50,95);
+  S={f,xL,xM,rays:$("rays").checked?1:0};demo=$("demo").checked;fixAll();fillPanel();
+}
+$("saveBtn").onclick=()=>{readPanel();if(!locked)ls("lensLab.cfg",JSON.stringify(S));$("tMsg").textContent=t("saved")};
+$("demo").onchange=()=>{demo=$("demo").checked};
+$("rndBtn").onclick=()=>{const R=[[10,20],[12,25],[10,18],[12,25]];R.forEach((r,i)=>$("f"+i).value=Math.round((r[0]+Math.random()*(r[1]-r[0]))*2)/2);readPanel();if(!locked)ls("lensLab.cfg",JSON.stringify(S))};
+$("linkBtn").onclick=()=>{
+  readPanel();if(!locked)ls("lensLab.cfg",JSON.stringify(S));
+  if(location.origin==="null"||location.protocol==="file:"||location.protocol==="blob:"){$("tMsg").textContent=t("noHost");return}
+  const url=location.origin+location.pathname+"?s="+enc(S);
+  const o=$("linkOut");o.hidden=false;o.value=url;o.select();
+  const ok=()=>{$("tMsg").textContent=t("copied")};
+  if(navigator.clipboard)navigator.clipboard.writeText(url).then(ok,()=>{try{document.execCommand("copy");ok()}catch(e){}});else{try{document.execCommand("copy");ok()}catch(e){}}
+};
+function renderAns(){
+  let h="<table><tr><th>"+t("elem")+"</th><th>f (cm)</th><th>R (cm)</th></tr>";
+  for(let i=0;i<4;i++){const f=SIGN[i]*S.f[i];h+="<tr><td style='font-family:inherit'>"+t("e"+i)+"</td><td>"+(f>0?"+":"")+f.toFixed(1)+"</td><td>"+(i>=2?(f>0?"+":"")+(2*f).toFixed(1):"–")+"</td></tr>"}
+  $("ans").innerHTML=h+"</table>";
+}
+$("pwChg").onclick=()=>{
+  const m=$("pcMsg");
+  if(norm($("adE").value).toLowerCase()!==AD_E||norm($("adP").value)!==norm(AD_P)){m.textContent=t("pwBad");return}
+  const n=$("nP").value.trim();if(!n){m.textContent=t("pwEmpty");return}
+  ls("lensLab.pw",n);m.textContent=t("pwOk");$("adP").value="";$("nP").value="";
+};
+
+/* ---------- canvas ---------- */
+const cv=$("cv"),ctx=cv.getContext("2d");
+let W=0,H=0,DPR=1;
+const MONO='ui-monospace,"SF Mono",Menlo,Consolas,monospace';
+function fit(){const r=cv.getBoundingClientRect(),d=window.devicePixelRatio||1;if(r.width!==W||r.height!==H||d!==DPR){W=r.width;H=r.height;DPR=d;cv.width=Math.round(W*d);cv.height=Math.round(H*d)}ctx.setTransform(DPR,0,0,DPR,0,0)}
+function lay(){
+  const insH=Math.max(110,Math.min(H*0.56,520));const s=Math.max(80,Math.min(insH-14,(W-44)/1.2));
+  const fw=1.6*s/8+12,ix=(W-s-fw)/2+fw,iy=6,by0=iy+s+12,railY=H-40,pxcm=(W-48)/100;
+  const vs=Math.max(3,Math.min(pxcm*2.2,(railY-12-by0)/13));const axisY=railY-12-6*vs;
+  return{s,ix,iy,by0,railY,pxcm,vs,axisY,X:x=>24+x*pxcm,Y:y=>axisY-y*vs,iX:px=>(px-24)/pxcm};
+}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+const FSEG=[[0,0,0,3],[0,3,1.4,3],[0,1.7,1.0,1.7]];
+function pathF(ox,oy,k,sc,dx,dy){ctx.beginPath();for(const[a,b,c,d]of FSEG){ctx.moveTo(ox+(a*sc+dx)*k,oy-(b*sc+dy)*k);ctx.lineTo(ox+(c*sc+dx)*k,oy-(d*sc+dy)*k)}}
+
+function drawInset(L,time){
+  const{s,ix,iy}=L,cx=ix+s/2,cy=iy+s/2;
+  ctx.save();rr(ix,iy,s,s,10);ctx.fillStyle=tool==="screen"?"#1a2129":"#07111c";ctx.fill();ctx.strokeStyle="rgba(255,255,255,.18)";ctx.lineWidth=1;ctx.stroke();ctx.clip();
+  const im=image();
+  if(tool==="screen"){
+    const k=s/14,xE=xEl(),xs=P[el].s,ds=isM()?xE-xs:xs-xE,D=5;
+    // faint grid on card
+    ctx.strokeStyle="rgba(255,255,255,.05)";ctx.lineWidth=1;
+    for(let g=-7;g<=7;g++){ctx.beginPath();ctx.moveTo(cx+g*k,iy);ctx.lineTo(cx+g*k,iy+s);ctx.stroke();ctx.beginPath();ctx.moveTo(ix,cy+g*k);ctx.lineTo(ix+s,cy+g*k);ctx.stroke()}
+    if(im&&im.real&&ds>0){
+      const sc=-ds/im.u,r=D*Math.abs(ds-im.v)/im.v/2;
+      const I=clamp(1/(sc*sc),0.12,1);
+      // diffuse patch
+      const g=ctx.createRadialGradient(cx,cy,0,cx,cy,s*.6);g.addColorStop(0,"rgba(232,178,58,"+(0.10*I)+")");g.addColorStop(1,"rgba(232,178,58,0)");ctx.fillStyle=g;ctx.fillRect(ix,iy,s,s);
+      const N=r*k<0.6?1:48;ctx.globalCompositeOperation="lighter";
+      ctx.lineWidth=Math.max(1.6,0.32*Math.abs(sc)*k);ctx.lineCap="round";
+      ctx.strokeStyle="rgba(255,214,130,"+Math.min(1,I*1.4/N)+")";
+      for(let i=0;i<N;i++){const a=i*2.39996,q=N===1?0:r*Math.sqrt((i+.5)/N);pathF(cx,cy,k,sc,q*Math.cos(a),q*Math.sin(a));ctx.stroke()}
+      ctx.globalCompositeOperation="source-over";
+    }else{
+      const g=ctx.createRadialGradient(cx,cy,0,cx,cy,s*.55);g.addColorStop(0,"rgba(232,178,58,.13)");g.addColorStop(1,"rgba(232,178,58,0)");ctx.fillStyle=g;ctx.fillRect(ix,iy,s,s);
+    }
+  }else{
+    const k=s/8;
+    let baseX=cx,imgTop=cy;
+    if(im){
+      const ms=Math.sign(im.m)*clamp(Math.abs(im.m),0.3,1.8);
+      const oy=cy+s*0.05+1.5*ms*k,ox=cx-0.7*ms*k+eye*12;
+      ctx.lineWidth=Math.max(2,0.3*Math.abs(ms)*k);ctx.lineCap="round";ctx.strokeStyle="rgba(255,214,130,.95)";
+      pathF(ox,oy,k,ms,0,0);ctx.stroke();
+      baseX=ox;imgTop=Math.min(oy,oy-3*ms*k);
+    }else imgTop=cy+s*0.1;
+    const far=im?(isM()?P[el].p-im.xi:im.xi-P[el].p):10;
+    const rel=.45*s*(.6*Math.tanh(far/6)+.4*Math.tanh(far/40));
+    const px=baseX+eye*rel;
+    ctx.strokeStyle="#cfd6de";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(px,iy-2);ctx.lineTo(px,imgTop-9);ctx.stroke();
+    ctx.fillStyle="#cfd6de";ctx.beginPath();ctx.moveTo(px-3,imgTop-12);ctx.lineTo(px+3,imgTop-12);ctx.lineTo(px,imgTop-2);ctx.fill();
+  }
+  ctx.restore();
+  {const kr=tool==="screen"?s/14:s/8,lw=Math.max(1.6,0.3*kr),rx=ix-12-1.4*kr-lw/2,ry=iy+s-lw/2;
+   ctx.lineWidth=lw;ctx.lineCap="round";ctx.strokeStyle="rgba(238,233,221,.6)";pathF(rx,ry,kr,1,0,0);ctx.stroke();
+   ctx.font="600 10px "+MONO;ctx.fillStyle="rgba(140,155,173,.9)";ctx.textAlign="left";ctx.textBaseline="bottom";ctx.fillText("1:1",rx-2,ry-3*kr-lw)}
+  ctx.font="600 11px "+MONO;ctx.fillStyle="#8C9BAD";ctx.textBaseline="top";
+  ctx.fillText(tool==="screen"?t("inScreen"):t("inEye"),ix+8,iy+7);
+  if(tool==="pin"&&(!im||im.xi<0||im.xi>100)){
+    ctx.font="700 13px "+MONO;const msg=t("tooFar"),w=Math.min(s-16,ctx.measureText(msg).width+20),bx=ix+(s-w)/2,by=iy+s-36;
+    rr(bx,by,w,26,6);ctx.fillStyle="rgba(11,26,43,.92)";ctx.fill();ctx.strokeStyle="#E8B23A";ctx.lineWidth=1.2;ctx.stroke();
+    ctx.fillStyle="#E8B23A";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(msg,ix+s/2,by+13,s-28);ctx.textAlign="left"}
+}
+
+function drawBench(L){
+  const{X,Y,axisY,railY,vs,pxcm}=L,xE=xEl(),m=isM(),pos=P[el],dkey=dk(),xd=pos[dkey];
+  // axis
+  ctx.strokeStyle="rgba(255,255,255,.12)";ctx.setLineDash([4,6]);ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(X(0),axisY);ctx.lineTo(X(100),axisY);ctx.stroke();ctx.setLineDash([]);
+  // rail + ruler
+  ctx.fillStyle="#13283f";ctx.fillRect(X(0)-6,railY,X(100)-X(0)+12,16);ctx.strokeStyle="rgba(255,255,255,.25)";ctx.strokeRect(X(0)-6,railY,X(100)-X(0)+12,16);
+  ctx.strokeStyle="rgba(238,233,221,.55)";ctx.fillStyle="#cfc9bb";ctx.font="10px "+MONO;ctx.textAlign="center";ctx.textBaseline="top";
+  for(let c=0;c<=100;c++){const h=c%10===0?9:c%5===0?6:3.5;if(pxcm<4&&c%5&&c%10)continue;ctx.beginPath();ctx.moveTo(X(c)+.5,railY);ctx.lineTo(X(c)+.5,railY+h);ctx.stroke();if(c%10===0)ctx.fillText(c,X(c),railY+17)}
+  const post=(x,top,col)=>{ctx.strokeStyle=col||"#5d6f84";ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(X(x),top);ctx.lineTo(X(x),railY);ctx.stroke();ctx.fillStyle="#2a3d53";ctx.fillRect(X(x)-8,railY-5,16,5)};
+  const sel=k=>(k==="o"&&target==="o")||(k!=="o"&&target==="d");
+  // rays (teacher)
+  const im=image();
+  if((S.rays||demo)&&im)drawRays(L,im);
+  // element
+  const h=4.2*vs,x=X(xE);post(xE,axisY+h);
+  ctx.lineWidth=2;
+  if(!m){
+    ctx.fillStyle="rgba(140,200,235,.22)";ctx.strokeStyle="#9fd3ee";ctx.beginPath();
+    if(el===0){ctx.ellipse(x,axisY,6,h,0,0,Math.PI*2)}
+    else{ctx.moveTo(x-8,axisY-h);ctx.lineTo(x+8,axisY-h);ctx.quadraticCurveTo(x+1,axisY,x+8,axisY+h);ctx.lineTo(x-8,axisY+h);ctx.quadraticCurveTo(x-1,axisY,x-8,axisY-h);ctx.closePath()}
+    ctx.fill();ctx.stroke();
+  }else{
+    const bulge=el===2?9:-9;
+    ctx.strokeStyle="#dfe6ee";ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x-(el===2?4:-4),axisY-h);ctx.quadraticCurveTo(x+bulge,axisY,x-(el===2?4:-4),axisY+h);ctx.stroke();
+    ctx.strokeStyle="rgba(200,210,220,.4)";ctx.lineWidth=1;
+    for(let yy=-h+4;yy<h;yy+=7){const xx=x+(el===2?(bulge*(1-(yy/h)**2)*.5):(bulge*(1-(yy/h)**2)*.5))-(el===2?2:-4)+4;ctx.beginPath();ctx.moveTo(xx,axisY+yy);ctx.lineTo(xx+6,axisY+yy-5);ctx.stroke()}
+  }
+  // object
+  const xo=X(pos.o);post(pos.o,axisY+1.2*vs,sel("o")?"#7FD4A8":null);
+  ctx.fillStyle="#1d2f44";ctx.strokeStyle=sel("o")?"#7FD4A8":"#4c6077";ctx.lineWidth=1.5;rr(xo-16,axisY-3.8*vs,12,5*vs,3);ctx.fill();ctx.stroke();
+  ctx.fillStyle="rgba(232,178,58,.25)";ctx.beginPath();ctx.arc(xo-10,axisY-1.3*vs,3.5,0,7);ctx.fill();
+  ctx.strokeStyle="#E8B23A";ctx.fillStyle="#E8B23A";ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(xo,axisY);ctx.lineTo(xo,Y(3)+6);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(xo,Y(3));ctx.lineTo(xo-5,Y(3)+8);ctx.lineTo(xo+5,Y(3)+8);ctx.closePath();ctx.fill();
+  // detector
+  const xdp=X(xd),dc=sel("d")?"#7FD4A8":"#cfd6de";
+  if(tool==="screen"){post(xd,axisY+6*vs,sel("d")?"#7FD4A8":null);ctx.fillStyle="rgba(238,233,221,.85)";ctx.fillRect(xdp-2,axisY-6*vs,4,12*vs);if(sel("d")){ctx.strokeStyle="#7FD4A8";ctx.lineWidth=1.5;ctx.strokeRect(xdp-4,axisY-6*vs-2,8,12*vs+4)}}
+  else{post(xd,axisY+.5*vs,sel("d")?"#7FD4A8":null);ctx.strokeStyle=dc;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(xdp,axisY+.5*vs);ctx.lineTo(xdp,Y(5.5));ctx.stroke();ctx.fillStyle=dc;ctx.beginPath();ctx.arc(xdp,Y(5.5),4,0,7);ctx.fill()}
+  // tags
+  const tag=(x,txt,col)=>{ctx.font="600 11px "+MONO;const w=ctx.measureText(txt).width+10;const tx=clamp(X(x)-w/2,2,W-w-2);rr(tx,railY-22,w,16,4);ctx.fillStyle="rgba(11,26,43,.92)";ctx.fill();ctx.strokeStyle=col;ctx.lineWidth=1;ctx.stroke();ctx.fillStyle=col;ctx.textAlign="left";ctx.textBaseline="middle";ctx.fillText(txt,tx+5,railY-14)};
+  if(tool==="pin"){const ex=X(isM()?1:99),ey=axisY;ctx.save();ctx.strokeStyle="#7FD4A8";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(ex-11,ey);ctx.quadraticCurveTo(ex,ey-10,ex+11,ey);ctx.quadraticCurveTo(ex,ey+10,ex-11,ey);ctx.stroke();ctx.fillStyle="#7FD4A8";ctx.beginPath();ctx.arc(ex+(isM()?3:-3),ey,3.2,0,7);ctx.fill();ctx.restore()}
+  tag(xE,xE.toFixed(1),"#8C9BAD");tag(pos.o,pos.o.toFixed(1),sel("o")?"#7FD4A8":"#E8B23A");tag(xd,xd.toFixed(1),sel("d")?"#7FD4A8":"#EEE9DD");
+}
+function drawRays(L,im){
+  const{X,Y,axisY}=L,xE=xEl(),xo=P[el].o,hi=3*im.m,f=fv();
+  ctx.save();ctx.lineWidth=1.3;
+  const seg=(a,b,c,d,dash,col)=>{ctx.setLineDash(dash?[5,5]:[]);ctx.strokeStyle=col;ctx.beginPath();ctx.moveTo(X(a),Y(b));ctx.lineTo(X(c),Y(d));ctx.stroke()};
+  [[xE,3],[xE,0]].forEach(([px,py])=>{
+    seg(xo,3,px,py,false,"rgba(232,178,58,.75)");
+    let dx,dy;if(im.real){dx=im.xi-px;dy=hi-py}else{dx=px-im.xi;dy=py-hi;seg(im.xi,hi,px,py,true,"rgba(127,212,168,.6)")}
+    const n=Math.hypot(dx,dy)||1;seg(px,py,px+dx/n*220,py+dy/n*220,false,"rgba(232,178,58,.75)");
+  });
+  ctx.setLineDash(im.real?[]:[4,4]);ctx.strokeStyle="#7FD4A8";ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(X(im.xi),axisY);ctx.lineTo(X(im.xi),Y(hi));ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle="#7FD4A8";[xE-Math.abs(f),xE+Math.abs(f)].forEach(x=>{ctx.beginPath();ctx.arc(X(x),axisY,3,0,7);ctx.fill()});
+  ctx.restore();
+}
+function frame(time){eye+=(eyeT-eye)*0.12;fit();ctx.clearRect(0,0,W,H);if(W>0&&H>0){const L=lay();drawInset(L,time);drawBench(L)}requestAnimationFrame(frame)}
+
+/* drag */
+let drag=null;
+cv.addEventListener("pointerdown",e=>{
+  const L=lay(),r=cv.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top;if(py<L.by0)return;
+  const c=[["o",P[el].o],[dk(),P[el][dk()]]].map(([k,x])=>[k,Math.abs(L.X(x)-px)]).sort((a,b)=>a[1]-b[1]);
+  if(c[0][1]<40){drag=c[0][0];target=drag==="o"?"o":"d";chips();cv.setPointerCapture(e.pointerId);setPos(drag,L.iX(px));e.preventDefault()}
+});
+cv.addEventListener("pointermove",e=>{if(!drag)return;const L=lay(),r=cv.getBoundingClientRect();setPos(drag,L.iX(e.clientX-r.left))});
+const end=()=>{drag=null};cv.addEventListener("pointerup",end);cv.addEventListener("pointercancel",end);
+
+applyLang();requestAnimationFrame(frame);
+</script>
+</body>
+</html>
